@@ -1,0 +1,6 @@
+streamlit
+matplotlib
+wordcloud
+matplotlib_venn
+streamlit_extras
+requests
