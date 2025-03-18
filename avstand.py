@@ -105,6 +105,15 @@ def create_tree(field, group, occupation, barometer, bold):
     tree = f"<p style='font-size:16px;'>{string}</p>"
     return tree
 
+def create_string_chosen_locations(data):
+    strings = []
+    for d in data:
+        annonstext = f"Annonser {d[1]['annonser'][0]}({d[1]['annonser'][1]})"
+        strings.append(f"{d[1]['ortnamn']}<br />&emsp;&emsp;&emsp;{annonstext}")
+    string = "<br />".join(strings)
+    location_string = f"<p style='font-size:16px;'>{string}</p>"
+    return location_string
+
 def create_string_locations(data):
     strings = []
     for d in data:
@@ -165,8 +174,10 @@ def post_selected_occupation(id_occupation):
 
         col1, col2 = st.columns(2)
 
-        with col1:
-            a, b = st.columns(2)
+        with col2:
+            a, b, c = st.columns(3)
+
+        st.write("---")
 
         col3, col4 = st.columns(2)
 
@@ -232,16 +243,28 @@ def post_selected_occupation(id_occupation):
         a.metric(label = "Platsbanken", value = alla_nu, delta = skillnad_nu)
         b.metric(label = "2024", value = alla_historiskt, delta = skillnad_historiska)
 
-        antal_orter = len(locations_with_ads_max)
-        n = math.ceil(antal_orter / 2)
-
         list_locations_with_ads_max = list(locations_with_ads_max.items())
 
-        locations_1 = list_locations_with_ads_max[:n]
-        locations_2 = list_locations_with_ads_max[n:]
+        sökt_ort = list_locations_with_ads_max[0]
+        andra_orter = list_locations_with_ads_max[1:]
+
+        antal_orter = len(andra_orter)
+        n = math.ceil(antal_orter / 2)
+
+        locations_1 = andra_orter[:n]
+        locations_2 = andra_orter[n:]
 
         geo_string1 = create_string_locations(locations_1)
         geo_string2 = create_string_locations(locations_2)
+
+        with col1:
+            st.write("")
+            sökt_ort_string = create_string_chosen_locations([sökt_ort])
+            st.markdown(sökt_ort_string, unsafe_allow_html = True)
+
+            #Skriv ut sökt ort här med annonsanatal.
+        
+        
 
         with col3:
             st.markdown(geo_string1, unsafe_allow_html = True)
@@ -249,8 +272,10 @@ def post_selected_occupation(id_occupation):
         with col4:
             st.markdown(geo_string2, unsafe_allow_html = True)
 
-    text_dataunderlag_närliggande_orter = "<strong>Dataunderlag</strong><br />Närliggande orter baseras på avstånd mellan orter från öppen geodata, annonser i Platsbanken och Historiska berikade annonser knutna till dessa orter och vald yrkesbenämning."
-    st.markdown(f"<p style='font-size:12px;'>{text_dataunderlag_närliggande_orter}</p>", unsafe_allow_html=True)
+        text_dataunderlag_närliggande_orter = "<strong>Dataunderlag</strong><br />Närliggande orter baseras på avstånd mellan orter från öppen geodata, annonser i Platsbanken och Historiska berikade annonser knutna till dessa orter och vald yrkesbenämning."
+        
+        st.write("---")
+        st.markdown(f"<p style='font-size:12px;'>{text_dataunderlag_närliggande_orter}</p>", unsafe_allow_html=True)
 
 def choose_occupation_name():
     show_initial_information()
