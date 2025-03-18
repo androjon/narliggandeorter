@@ -123,13 +123,16 @@ def create_string_locations(data):
     location_string = f"<p style='font-size:16px;'>{string}</p>"
     return location_string
 
+def update_selected():
+    st.session_state.selected_similar = []
+
 def show_selectable_similar(data):
     with st.sidebar:
         selection = {}
         for k, v in data.items():
             name = f"{v[0]} {v[1]}({v[2]})"
             selection[name] = k
-        selected = st.pills("Välj en eller flera närliggande yrken", list(selection.keys()), selection_mode = "multi")
+        selected = st.pills("Välj en eller flera närliggande yrken", list(selection.keys()), selection_mode = "multi", on_change = update_selected)
         if selected:
             selected_ids = []
             for s in selected:
