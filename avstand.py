@@ -263,11 +263,7 @@ def post_selected_occupation(id_occupation):
         with col1:
             st.write("")
             sökt_ort_string = create_string_chosen_locations([sökt_ort])
-            st.markdown(sökt_ort_string, unsafe_allow_html = True)
-
-            #Skriv ut sökt ort här med annonsanatal.
-        
-        
+            st.markdown(sökt_ort_string, unsafe_allow_html = True)        
 
         with col3:
             st.markdown(geo_string1, unsafe_allow_html = True)
@@ -275,7 +271,7 @@ def post_selected_occupation(id_occupation):
         with col4:
             st.markdown(geo_string2, unsafe_allow_html = True)
 
-        text_dataunderlag_närliggande_orter = "<strong>Dataunderlag</strong><br />Närliggande orter baseras på avstånd mellan orter från öppen geodata, annonser i Platsbanken och Historiska berikade annonser knutna till dessa orter och vald yrkesbenämning."
+        text_dataunderlag_närliggande_orter = "<strong>Dataunderlag</strong><br />Närliggande orter baseras på avstånd mellan orter från öppen geodata, annonser i Platsbanken och Historiska berikade annonser knutna till dessa orter och vald yrkesbenämning. Annonstalet gentemot Platsbanken uppdateras inte varje dag."
         
         st.write("---")
         st.markdown(f"<p style='font-size:12px;'>{text_dataunderlag_närliggande_orter}</p>", unsafe_allow_html=True)
