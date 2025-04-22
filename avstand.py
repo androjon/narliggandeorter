@@ -4,6 +4,11 @@ import requests
 import re
 import math
 
+#Upplands Väsby saknas
+#Alby(Ånge) fel
+#Kalmar - Lindö (Norrköping) fel
+#Kallfors (Södertälje) fel
+
 @st.cache_data
 def import_data(filename):
     with open(filename) as file:
@@ -217,6 +222,9 @@ def post_selected_occupation(id_occupation):
 
         st.write("---")
 
+        headline_string = f"<p style='font-size:16px;'><strong>Relevanta pendlingsorter</strong></p>"
+        st.markdown(headline_string, unsafe_allow_html = True, help = "Kryssa i rutan för att inkludera kommunen i sökområdet") 
+
         col3, col4 = st.columns(2)
 
         relevant_locations_with_ads = locations_with_ads[1:]
@@ -227,24 +235,24 @@ def post_selected_occupation(id_occupation):
         locations_1 = relevant_locations_with_ads[:n]
         locations_2 = relevant_locations_with_ads[n:]
 
-        included_locations = []     
+        included_locations = []
 
         with col3:
             for l in locations_1:
+                c, d = st.columns([3, 1])
                 string_location, hover_info = create_string_location(l)
-                st.markdown(string_location, unsafe_allow_html = True, help = hover_info)
-
-                include = st.checkbox("Inkludera i sökområde", key = l["town_with_municipality"], value = False)
+                c.markdown(string_location, unsafe_allow_html = True, help = hover_info)
+                include = d.checkbox("", key = l["town_with_municipality"], value = False)
                 if include:
                     included_locations.append(l)
                 st.link_button(f"{l['municipality']} ({l['ads_now']})", l["link"], icon = ":material/link:", help = "Inom parentes antal annonser i Platsbanken för aktuell yrkesgrupp och kommun")
 
         with col4:
             for l in locations_2:
+                c, d = st.columns([3, 1])
                 string_location, hover_info = create_string_location(l)
-                st.markdown(string_location, unsafe_allow_html = True, help = hover_info)
-
-                include = st.checkbox("Inkludera i sökområde", key = l["town_with_municipality"], value = False)
+                c.markdown(string_location, unsafe_allow_html = True, help = hover_info)
+                include = d.checkbox("", key = l["town_with_municipality"], value = False)
                 if include:
                     included_locations.append(l)
                 st.link_button(f"{l['municipality']} ({l['ads_now']})", l["link"], icon = ":material/link:", help = "Inom parentes antal annonser i Platsbanken för aktuell yrkesgrupp och kommun")
