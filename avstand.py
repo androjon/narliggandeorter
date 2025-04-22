@@ -4,10 +4,6 @@ import requests
 import re
 import math
 
-#Fel Kalmar - Lindö
-#Fel Kallfors (Södertälje)
-#Fel finns inga orter med dubbelnamn, till exempel Upplands Väsby
-
 @st.cache_data
 def import_data(filename):
     with open(filename) as file:
@@ -208,8 +204,6 @@ def post_selected_occupation(id_occupation):
         id_selected_location = st.session_state.locations_id.get(selected_location)
         locations_with_ads = add_ads_occupationgroup(occupation_group_id, id_selected_location)
 
-        st.session_state.all_ads_now, st.session_state.all_ads_historical = count_total_ad_numbers(locations_with_ads)
-
         col1, col2 = st.columns(2)
 
         with col1:
@@ -231,25 +225,37 @@ def post_selected_occupation(id_occupation):
         n = math.ceil(antal_orter / 2)
 
         locations_1 = relevant_locations_with_ads[:n]
-        locations_2 = relevant_locations_with_ads[n:]       
+        locations_2 = relevant_locations_with_ads[n:]
+
+        included_locations = []     
 
         with col3:
             for l in locations_1:
                 string_location, hover_info = create_string_location(l)
                 st.markdown(string_location, unsafe_allow_html = True, help = hover_info)
-                st.link_button(f"{l['municipality']} ({l['ads_now']})", l["link"], icon = ":material/link:", help = "Antal annonser i Platsbanken inom parentes för aktuell yrkesgrupp och kommun")
+
+                include = st.checkbox("Inkludera i sökområde", key = l["town_with_municipality"], value = False)
+                if include:
+                    included_locations.append(l)
+                st.link_button(f"{l['municipality']} ({l['ads_now']})", l["link"], icon = ":material/link:", help = "Inom parentes antal annonser i Platsbanken för aktuell yrkesgrupp och kommun")
 
         with col4:
             for l in locations_2:
                 string_location, hover_info = create_string_location(l)
                 st.markdown(string_location, unsafe_allow_html = True, help = hover_info)
-                st.link_button(f"{l['municipality']} ({l['ads_now']})", l["link"], icon = ":material/link:", help = "Antal annonser i Platsbanken inom parentes för aktuell yrkesgrupp och kommun")
+
+                include = st.checkbox("Inkludera i sökområde", key = l["town_with_municipality"], value = False)
+                if include:
+                    included_locations.append(l)
+                st.link_button(f"{l['municipality']} ({l['ads_now']})", l["link"], icon = ":material/link:", help = "Inom parentes antal annonser i Platsbanken för aktuell yrkesgrupp och kommun")
+
+        st.session_state.all_ads_now, st.session_state.all_ads_historical = count_total_ad_numbers([data_selected_location] + included_locations)
 
         skillnad_nu = st.session_state.all_ads_now - data_selected_location['ads_now']
         skillnad_historiska = st.session_state.all_ads_historical - data_selected_location['ads_historical']
 
-        a.metric(label = "Platsbanken", value = st.session_state.all_ads_now, delta = skillnad_nu, help = "Antal annonser i Platsbanken knutna till aktuell yrkesgrupp och relevanta kommuner. Siffran nedanför är mellanskillnaden mellan vald kommun och närliggande kommuner.")
-        b.metric(label = "2024", value = st.session_state.all_ads_historical, delta = skillnad_historiska, help = "Antal annonser 2024 knutna till aktuell yrkesgrupp och relevanta kommuner. Siffran nedanför är mellanskillnaden mellan vald kommun och närliggande kommuner.")
+        a.metric(label = "Platsbanken", value = st.session_state.all_ads_now, delta = skillnad_nu, help = "Antal annonser i Platsbanken för aktuell yrkesgrupp och inkluderade kommuner. Siffran nedanför är antalet annonser i inkluderade närliggande kommuner.")
+        b.metric(label = "2024", value = st.session_state.all_ads_historical, delta = skillnad_historiska, help = "Antal annonser 2024 för aktuell yrkesgrupp och inkluderade kommuner. Siffran nedanför är antalet annonser i inkluderade närliggande kommuner.")
 
         text_dataunderlag_närliggande_orter = "<strong>Dataunderlag</strong><br />Närliggande orter baseras på avstånd mellan orter från öppen geodata, annonser i Platsbanken och Historiska berikade annonser knutna till aktuell yrkesgrupp och kommun."
         
