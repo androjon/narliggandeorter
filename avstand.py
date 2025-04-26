@@ -4,7 +4,12 @@ import requests
 import itertools
 import re
 import operator
-#from import_ads_platsbanken import import_ads
+from import_ads_platsbanken import import_ads
+
+@st.cache_data
+def import_plastbanken():
+    data = import_ads()
+    return data
 
 @st.cache_data
 def import_data(filename):
@@ -70,7 +75,7 @@ def get_addnumbers_similar(g):
     all_ads_locations = [0, 0]
     ads_platsbanken_group = st.session_state.all_relevant_groups_with_platsbanken_ads.get(g)
     for municipality_id in st.session_state.included_municipalities:
-        if ads_platsbanken_group:       
+        if ads_platsbanken_group:
             ads_location = ads_platsbanken_group.get(municipality_id)
             if ads_location:
                 all_ads_locations[0] += ads_location
@@ -131,7 +136,7 @@ def create_locations_with_ads(id_location):
         "ads": addnumbers,
         "link": link_location}
     all_locations_with_links_adds.append(location_with_link_addnumbers)
-    
+
     list_relevant_locations = st.session_state.geodata.get(id_location)
 
     for l in list_relevant_locations:
@@ -146,11 +151,10 @@ def create_locations_with_ads(id_location):
             "ads": addnumbers,
             "link": link_location}
         all_locations_with_links_adds.append(location_with_link_addnumbers)
-    
+
     all_locations_with_links_adds = sorted(all_locations_with_links_adds, key = operator.itemgetter("distance"), reverse = False)
     return all_locations_with_links_adds
 
-#@st.cache_data
 def fetch_data():
     st.session_state.occupationdata = import_data("all_valid_occupations_with_info_v25.json")
     for key, value in st.session_state.occupationdata.items():
@@ -160,11 +164,8 @@ def fetch_data():
     st.session_state.geodata = import_data("ort_ort_relevans.json")
     st.session_state.municipality_id_namn = import_data("kommun_id_namn.json")
     st.session_state.ad_data_historical = import_data("ssyk_region_kommun_annonser_2024.json")
-    #st.session_state.ad_data_platsbanken = import_ads()
-    st.session_state.ad_data_platsbanken= import_data("platsbanken.json")
-    #st.session_state.labour_flow = import_data("labour_flow_data.json")
-    #st.session_state.municipality_id_region_id = import_data("kommun_id_region_id.json")
-    #st.session_state.forecast = import_data("barometer_regional.json")
+    st.session_state.ad_data_platsbanken = import_plastbanken()
+    #st.session_state.ad_data_platsbanken= import_data("platsbanken.json")
     st.session_state.occupation_group_id_name = import_data("occupation_group_id_name.json")
 
 def show_initial_information():
@@ -287,25 +288,28 @@ def show_options():
         geographical_info = "Utöka sökområde geografiskt genom att välja orter i listan ned. Sökområdet uttökas med kommunen som orten ligger i."
         st.markdown(geographical_string, unsafe_allow_html = True, help = geographical_info)
 
+        locations_to_make_strings_of = []
+
         for l in st.session_state.relevant_locations_with_ads:
             c, d = st.columns([3, 1])
+            locations_to_make_strings_of.append(l)
             string_location = create_string_location(l)
             c.markdown(string_location, unsafe_allow_html = True)
             include = d.checkbox(l['municipality'], key = l["town_with_municipality"], value = False, label_visibility = "collapsed")
             if include:
                 if not l['municipality_id'] in st.session_state.included_municipalities:
                     st.session_state.included_municipalities.append(l['municipality_id'])
-    
+
     with col4:
-        if st.session_state.selectable_similar:        
+        if st.session_state.selectable_similar:
             occupational_string = f"<p style='font-size:16px;'><strong>Utöka sökområde yrkesmässigt</strong></p>"
             occupational_info = "Utöka sökområde yrkesmässigt genom att välja yrkesbenämningar i listan ned. Sökområdet uttökas med yrkesgruppen som yrkesbenämningen tillhör."
             st.markdown(occupational_string, unsafe_allow_html = True, help = occupational_info)
             for s in st.session_state.selectable_similar:
-                c, d = st.columns([3, 1])
+                e, f = st.columns([3, 1])
                 string_similar, occupation_group_id = create_string_similar(s)
-                c.markdown(string_similar, unsafe_allow_html = True)
-                include = d.checkbox(occupation_group_id, key = occupation_group_id, value = False, label_visibility = "collapsed")
+                e.markdown(string_similar, unsafe_allow_html = True)
+                include = f.checkbox(occupation_group_id, key = occupation_group_id, value = False, label_visibility = "collapsed")
                 if include:
                     if not occupation_group_id in st.session_state.included_groups:
                         similar_group_name = st.session_state.occupation_group_id_name.get(occupation_group_id)
@@ -414,7 +418,7 @@ def post_selected_occupation(id_occupation):
             st.markdown(string_all, unsafe_allow_html = True)
 
         text_dataunderlag_närliggande_orter = "<strong>Dataunderlag</strong><br />Annonsplaneraren baseras på avstånd mellan orter från öppen geodata, annonser i Platsbanken och Historiska berikade annonser knutna till aktuell yrkesgrupp och kommun."
-        
+
         st.write("---")
         st.markdown(f"<p style='font-size:12px;'>{text_dataunderlag_närliggande_orter}</p>", unsafe_allow_html=True)
 
