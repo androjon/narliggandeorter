@@ -1,10 +1,10 @@
 import streamlit as st
 import json
 import requests
+import itertools
 import re
-import math
 import operator
-#from import_ads_platsbanken import import_ads
+from import_ads_platsbanken import import_ads
 
 @st.cache_data
 def import_data(filename):
@@ -12,10 +12,6 @@ def import_data(filename):
         content = file.read()
     output = json.loads(content)
     return output
-
-# @st.cache_data
-# def import_plastbanken():
-#     st.session_state_ad_data_platsbanken = import_ads()
 
 def split_town_municipality(town_municipality):
     town_municipality_split = town_municipality.split(";")
@@ -28,27 +24,35 @@ def split_town_municipality(town_municipality):
 
 def create_link_municipality(id_municipality):
     group_list = []
-    for g in st.session_state.selected_groups:
+    for g in st.session_state.included_groups:
         group_list.append(f"5:{g}")
     group_string = ";".join(group_list)
     link = f"https://arbetsformedlingen.se/platsbanken/annonser?p={group_string}&l=3:{id_municipality}"
     return link
 
+def create_link_group(group_id):
+    location_list = []
+    for municipality_id in st.session_state.included_municipalities:
+        location_list.append(f"3:{municipality_id}")
+    location_string = ";".join(location_list)
+    link = f"https://arbetsformedlingen.se/platsbanken/annonser?p=5:{group_id}&l={location_string}"
+    return link
+
 def create_link_all_selected():
     group_list = []
-    for g in st.session_state.selected_groups:
+    for g in st.session_state.included_groups:
         group_list.append(f"5:{g}")
     group_string = ";".join(group_list)
     location_list = []
-    for l in st.session_state.included_locations:
-        location_list.append(f"3:{l['municipality_id']}")
+    for municipality_id in st.session_state.included_municipalities:
+        location_list.append(f"3:{municipality_id}")
     location_string = ";".join(location_list)
     link = f"https://arbetsformedlingen.se/platsbanken/annonser?p={group_string}&l={location_string}"
     return link
 
 def get_addnumbers_location(municipality_id):
     all_ads_location = [0, 0]
-    for g in st.session_state.selected_groups:
+    for g in st.session_state.included_groups:
         ads_platsbanken_group = st.session_state.all_relevant_groups_with_platsbanken_ads.get(g)
         if ads_platsbanken_group:
             ads_location = ads_platsbanken_group.get(municipality_id)
@@ -65,8 +69,7 @@ def get_addnumbers_location(municipality_id):
 def get_addnumbers_similar(g):
     all_ads_locations = [0, 0]
     ads_platsbanken_group = st.session_state.all_relevant_groups_with_platsbanken_ads.get(g)
-    for l in st.session_state.included_locations:
-        municipality_id = l["municipality_id"]
+    for municipality_id in st.session_state.included_municipalities:
         if ads_platsbanken_group:       
             ads_location = ads_platsbanken_group.get(municipality_id)
             if ads_location:
@@ -78,6 +81,22 @@ def get_addnumbers_similar(g):
                 if ads_location:
                     all_ads_locations[1] += ads_location
     return all_ads_locations
+
+def get_addnumbers_similar_relevant_locations(g, id_location):
+    all_ads_similar = [0, 0]
+    list_relevant_locations = st.session_state.geodata.get(id_location)
+    ads_platsbanken_group = st.session_state.all_relevant_groups_with_platsbanken_ads.get(g)
+    ads_historical_group = st.session_state.all_relevant_groups_with_historical_ads.get(g)
+    if ads_platsbanken_group:
+        for l in list_relevant_locations:
+            municipality_id, town_with_municipality, municipality_name = split_town_municipality(l["ort2_id"])
+            ads_location = ads_platsbanken_group.get(municipality_id)
+            if ads_location:
+                all_ads_similar[0] += ads_location
+            ads_location = ads_historical_group.get(municipality_id)
+            if ads_location:
+                all_ads_similar[1] += ads_location
+    return all_ads_similar
 
 @st.fragment
 def extract_ads_relevant_occupation_groups(selected_group):
@@ -131,6 +150,7 @@ def create_locations_with_ads(id_location):
     all_locations_with_links_adds = sorted(all_locations_with_links_adds, key = operator.itemgetter("distance"), reverse = False)
     return all_locations_with_links_adds
 
+@st.cache_data
 def fetch_data():
     st.session_state.occupationdata = import_data("all_valid_occupations_with_info_v25.json")
     for key, value in st.session_state.occupationdata.items():
@@ -139,9 +159,13 @@ def fetch_data():
     st.session_state.valid_locations = list(st.session_state.locations_id.keys())
     st.session_state.geodata = import_data("ort_ort_relevans.json")
     st.session_state.municipality_id_namn = import_data("kommun_id_namn.json")
-    st.session_state.ad_data_historical = import_data("ssyk_kommun_annonser_2024.json")
-    st.session_state.ad_data_platsbanken= import_data("platsbanken.json")
-    #import_plastbanken()
+    st.session_state.ad_data_historical = import_data("ssyk_region_kommun_annonser_2024.json")
+    st.session_state.ad_data_platsbanken = import_ads()
+    #st.session_state.ad_data_platsbanken= import_data("platsbanken.json")
+    st.session_state.labour_flow = import_data("labour_flow_data.json")
+    st.session_state.municipality_id_region_id = import_data("kommun_id_region_id.json")
+    st.session_state.forecast = import_data("barometer_regional.json")
+    st.session_state.occupation_group_id_name = import_data("occupation_group_id_name.json")
 
 def show_initial_information():
     st.logo("af-logotyp-rgb-540px.jpg")
@@ -196,57 +220,100 @@ def create_tree(field, group, occupation, barometer, bold, yrkessamling = None, 
     tree = f"<p style='font-size:16px;'>{string}</p>"
     return tree
 
-def create_string_chosen_location(data):
-    if data['ads'][0] == 1:
-        annons_er_plats = "annons"
-    else:
-        annons_er_plats = "annonser"
-    if data['ads'][1] == 1:
-        annons_er_hist = "annons"
-    else:
-        annons_er_hist = "annonser"
-    link = f"{data['ads'][0]} {annons_er_plats} <a href='{data['link']}'>Platsbanken</a>"
-    location_string = f"<p style='font-size:16px;'><strong>{data['town_with_municipality']}</strong><br />&emsp;&emsp;&emsp;<small>{link}</small><br />&emsp;&emsp;&emsp;<small>{data['ads'][1]} {annons_er_hist} 2024</small></p>"
-    return location_string
-
 def create_string_location(data):
     if data['ads'][0] == 1:
         annons_er_plats = "annons"
     else:
         annons_er_plats = "annonser"
-    if data['ads'][1] == 1:
-        annons_er_hist = "annons"
+    if data['distance'] == 0:
+        distance = ""
     else:
-        annons_er_hist = "annonser"
-    link = f"{data['ads'][0]} {annons_er_plats} <a href='{data['link']}'>Platsbanken</a>"
-    location_string = f"<p style='font-size:16px;'><strong>{data['town_with_municipality']}</strong> {data['distance']} km<br />&emsp;&emsp;&emsp;<small>{link}</small><br />&emsp;&emsp;&emsp;<small>{data['ads'][1]} {annons_er_hist} 2024</small></p>"
+        distance = f" {data['distance']} km"
+    link = f"{data['ads'][0]} {annons_er_plats} <a href='{data['link']}'>Platsbanken</a> (2024: {data['ads'][1]})"
+    location_string = f"<p style='font-size:16px;'><strong>{data['town_with_municipality']}</strong>{distance}<br />&emsp;&emsp;&emsp;<small>{link}</small></p>"
     return location_string
 
-def count_total_ad_numbers(locations):
+def create_string_similar(data):
+    name, occupation_group_id = list(data.items())[0]
+    addnumbers = get_addnumbers_similar(occupation_group_id)
+    if addnumbers[0] == 1:
+        annons_er_plats = "annons"
+    else:
+        annons_er_plats = "annonser"
+    link = f"{addnumbers[0]} {annons_er_plats} <a href='{create_link_group(occupation_group_id)}'>Platsbanken</a> (2024: {addnumbers[1]})"
+    similar_string = f"<p style='font-size:16px;'><strong>{name}</strong><br />&emsp;&emsp;&emsp;<small>{link}</small></p>"
+    return similar_string, occupation_group_id
+
+def create_string_all_selected():
+    if st.session_state.all_ads_now == 1:
+        annons_er_plats = "annons"
+    else:
+        annons_er_plats = "annonser"
+    link = f"{st.session_state.all_ads_now} {annons_er_plats} <a href='{create_link_all_selected()}'>Platsbanken</a> (2024: {st.session_state.all_ads_historical})"
+    string_all_selected = f"<p style='font-size:16px;'><strong>Alla inkluderade</strong><br />&emsp;&emsp;&emsp;<small>{link}</small></p>"
+    return string_all_selected
+
+def count_total_ad_numbers():
     total_ads_now = 0
     total_ads_historical = 0
-    added_municipality = []
-    for l in locations:
-        if not l["municipality_id"] in added_municipality:
-            addnumbers = get_addnumbers_location(l["municipality_id"])
+    for m in st.session_state.included_municipalities:
+            addnumbers = get_addnumbers_location(m)
             total_ads_now += addnumbers[0]
             total_ads_historical += addnumbers[1]
-            added_municipality.append(l["municipality_id"])
     return total_ads_now, total_ads_historical
 
-def show_selectable_similar(data):
-    with st.sidebar:
-        selection = {}
-        for k, v in data.items():
-            name = k
-            addnumbers = get_addnumbers_similar(v)
-            name_with_ads = f"{name} ({addnumbers[0]}/{addnumbers[1]})"
-            selection[name_with_ads] = v
-        selected = st.pills("Välj en eller flera närliggande yrken", list(selection.keys()), selection_mode = "multi")
-        if selected:
-            for s in selected:
-                group_id = selection.get(s)
-                st.session_state.selected_groups.append(group_id)
+def create_selectable_similar(id_location):
+    similar_with_add_relevance = {}
+    for key, value in st.session_state.similar.items():
+        info_similar = st.session_state.occupationdata.get(key)
+        name_similar = info_similar["preferred_label"]
+        occupation_group_id_similar = info_similar["occupation_group_id"]
+        addnumbers = get_addnumbers_similar_relevant_locations(occupation_group_id_similar, id_location)
+        add_relevance = addnumbers[0] * 20 +  addnumbers[1]
+        similar_with_add_relevance[add_relevance] = {name_similar: occupation_group_id_similar}
+    sorted_similar_with_add_relevance = dict(sorted(similar_with_add_relevance.items(), reverse = True))
+    top_ten_similar_with_add_relevance = dict(itertools.islice(sorted_similar_with_add_relevance.items(), 10))
+    top_ten_similar = []
+    for v in top_ten_similar_with_add_relevance.values():
+        top_ten_similar.append(v)
+    sorted_top_ten = sorted(top_ten_similar, key = lambda x: list(x.keys())[0])
+    return sorted_top_ten
+
+def show_options():
+    col3, col4 = st.columns(2)
+
+    with col3:
+        geographical_string = f"<p style='font-size:16px;'><strong>Utöka sökområde geografiskt</strong></p>"
+        geographical_info = "Utöka sökområde geografiskt genom att välja orter i listan ned. Sökområdet uttökas med kommunen som orten ligger i."
+        st.markdown(geographical_string, unsafe_allow_html = True, help = geographical_info)
+
+        for l in st.session_state.relevant_locations_with_ads:
+            c, d = st.columns([3, 1])
+            string_location = create_string_location(l)
+            c.markdown(string_location, unsafe_allow_html = True)
+            include = d.checkbox(l['municipality'], key = l["town_with_municipality"], value = False, label_visibility = "collapsed")
+            if include:
+                if not l['municipality_id'] in st.session_state.included_municipalities:
+                    st.session_state.included_municipalities.append(l['municipality_id'])
+    
+    with col4:
+        if st.session_state.selectable_similar:        
+            occupational_string = f"<p style='font-size:16px;'><strong>Utöka sökområde yrkesmässigt</strong></p>"
+            occupational_info = "Utöka sökområde yrkesmässigt genom att välja yrkesbenämningar i listan ned. Sökområdet uttökas med yrkesgruppen som yrkesbenämningen tillhör."
+            st.markdown(occupational_string, unsafe_allow_html = True, help = occupational_info)
+            for s in st.session_state.selectable_similar:
+                c, d = st.columns([3, 1])
+                string_similar, occupation_group_id = create_string_similar(s)
+                c.markdown(string_similar, unsafe_allow_html = True)
+                include = d.checkbox(occupation_group_id, key = occupation_group_id, value = False, label_visibility = "collapsed")
+                if include:
+                    if not occupation_group_id in st.session_state.included_groups:
+                        similar_group_name = st.session_state.occupation_group_id_name.get(occupation_group_id)
+                        st.session_state.included_groups.append(occupation_group_id)
+                        st.session_state.included_group_names.append(similar_group_name)
+        else:
+            non_string = f"<p style='font-size:16px;'><strong>Inte tillräckligt med data för att kunna visa närliggande yrken</strong></p>"
+            st.markdown(non_string, unsafe_allow_html = True)
 
 def post_selected_occupation(id_occupation):
     info = st.session_state.occupationdata.get(id_occupation)
@@ -265,7 +332,7 @@ def post_selected_occupation(id_occupation):
     else:
         yrkessamling = None
 
-    ssyk_code = occupation_group[0:4]
+    st.session_state.ssyk_code_selected = occupation_group[0:4]
 
     if info["barometer_id"]:
         barometer = [f"{info['barometer_name']} (yrkesbarometeryrke)", info["barometer_above_ssyk"], info["barometer_part_of_ssyk"]]
@@ -292,83 +359,61 @@ def post_selected_occupation(id_occupation):
         (valid_locations), placeholder = "", index = None)
 
     if selected_location:
-        id_selected_location = st.session_state.locations_id.get(selected_location)
+        st.session_state.id_selected_location = st.session_state.locations_id.get(selected_location)
 
         extract_ads_relevant_occupation_groups(occupation_group_id)
 
-        col1, col2 = st.columns(2)
-        with col2:
-            a, b, c = st.columns(3)
-        st.write("---")
-        col3, col4 = st.columns(2)
-        st.write("---")
+        st.session_state.selected_location_id = []
+        st.session_state.selected_occupation_id = []
 
-        st.session_state.selected_groups = [occupation_group_id]
+        st.session_state.included_groups = [occupation_group_id]
+        st.session_state.included_group_names = [occupation_group]
 
-        locations_with_ads = create_locations_with_ads(id_selected_location)
+        st.session_state.locations_with_ads = create_locations_with_ads(st.session_state.id_selected_location)
+        st.session_state.data_selected_location = st.session_state.locations_with_ads[0]
 
-        with col1:
-            data_selected_location = locations_with_ads[0]
-            string_selected_location = create_string_chosen_location(data_selected_location)
-            st.markdown(string_selected_location, unsafe_allow_html = True)
-
-        relevant_locations_with_ads = locations_with_ads[1:]
-
-        antal_orter = len(relevant_locations_with_ads)
-        n = math.ceil(antal_orter / 2)
-
-        locations_1 = relevant_locations_with_ads[:n]
-        locations_2 = relevant_locations_with_ads[n:]
-
-        st.session_state.included_locations = [data_selected_location]
-
-        with col3:
-            for l in locations_1:
-                c, d = st.columns([3, 1])
-                string_location = create_string_location(l)
-                c.markdown(string_location, unsafe_allow_html = True)
-                include = d.checkbox(l['municipality'], key = l["town_with_municipality"], value = False, label_visibility = "collapsed")
-                if include:
-                    st.session_state.included_locations.append(l)
-
-        with col4:
-            for l in locations_2:
-                c, d = st.columns([3, 1])
-                string_location = create_string_location(l)
-                c.markdown(string_location, unsafe_allow_html = True)
-                include = d.checkbox(l['municipality'], key = l["town_with_municipality"], value = False, label_visibility = "collapsed")
-                if include:
-                    st.session_state.included_locations.append(l)
-
-        #På något sätt uppdatera listan med olika orter efter att liknande har lagts till.
-
-        e, f = st.columns(2)
+        st.session_state.relevant_locations_with_ads = st.session_state.locations_with_ads[1:]
+        st.session_state.included_municipalities = [st.session_state.data_selected_location['municipality_id']]
 
         if st.session_state.similar:
-            add_similar = e.checkbox("Inkludera närliggande yrken", key = "inkludera", value = False)
+            st.session_state.selectable_similar = create_selectable_similar(st.session_state.id_selected_location)
 
-        if add_similar:
-            similiar_name_group_id = {}
-            for key in st.session_state.similar.keys():
-                info_similar = st.session_state.occupationdata.get(key)
-                name_similar = info_similar["preferred_label"]
-                occupation_group_id_similar = info_similar["occupation_group_id"]
-                similiar_name_group_id[name_similar] = occupation_group_id_similar
-            show_selectable_similar(similiar_name_group_id)
+        show_options()
 
-        link_all = create_link_all_selected()
-        f.link_button(f"Platsbanken ALLA", link_all, icon = ":material/link:")
+        with st.sidebar:
+            a, b, c = st.columns(3)
 
+            string_selected_location = create_string_location(st.session_state.data_selected_location)
+            st.markdown(string_selected_location, unsafe_allow_html = True)
 
-        st.session_state.all_ads_now, st.session_state.all_ads_historical = count_total_ad_numbers(st.session_state.included_locations)
+            st.session_state.all_ads_now, st.session_state.all_ads_historical = count_total_ad_numbers()
 
-        skillnad_nu = st.session_state.all_ads_now - data_selected_location['ads'][0]
-        skillnad_historiska = st.session_state.all_ads_historical - data_selected_location['ads'][1]
+            skillnad_nu = st.session_state.all_ads_now - st.session_state.data_selected_location['ads'][0]
+            skillnad_historiska = st.session_state.all_ads_historical - st.session_state.data_selected_location['ads'][1]
 
-        a.metric(label = "Platsbanken", value = st.session_state.all_ads_now, delta = skillnad_nu, help = "Antal annonser i Platsbanken för aktuell yrkesgrupp och inkluderade kommuner. Siffran nedanför är antalet annonser i inkluderade närliggande kommuner.")
-        b.metric(label = "2024", value = st.session_state.all_ads_historical, delta = skillnad_historiska, help = "Antal annonser 2024 för aktuell yrkesgrupp och inkluderade kommuner. Siffran nedanför är antalet annonser i inkluderade närliggande kommuner.")
+            a.metric(label = "Nu", value = st.session_state.all_ads_now, delta = skillnad_nu, help = "Antal annonser i Platsbanken för aktuell yrkesgrupp och inkluderade kommuner. Siffran nedanför är antalet annonser i inkluderade närliggande kommuner.")
+            b.metric(label = "2024", value = st.session_state.all_ads_historical, delta = skillnad_historiska, help = "Antal annonser 2024 för aktuell yrkesgrupp och inkluderade kommuner. Siffran nedanför är antalet annonser i inkluderade närliggande kommuner.")
 
-        text_dataunderlag_närliggande_orter = "<strong>Dataunderlag</strong><br />Närliggande orter baseras på avstånd mellan orter från öppen geodata, annonser i Platsbanken och Historiska berikade annonser knutna till aktuell yrkesgrupp och kommun."
+            muncipality_names = []
+            for m in st.session_state.included_municipalities:
+                muncipality_names.append(st.session_state.municipality_id_namn.get(m))
+            muncipality_names = sorted(muncipality_names)
+            muncipality_string = "<br />&emsp;&emsp;&emsp;".join(muncipality_names)
+            string_to_print = f"<p style='font-size:16px;'><strong>Inkluderade kommuner</strong><br />&emsp;&emsp;&emsp;<small>{muncipality_string}</small></p>"
+            st.markdown(string_to_print, unsafe_allow_html = True)
+
+            occupation_group_names = []
+            for g in st.session_state.included_group_names:
+                occupation_group_names.append(g)
+            occupation_group_names = sorted(occupation_group_names)
+            occupation_string = "<br />&emsp;&emsp;&emsp;".join(occupation_group_names)
+            string_to_print = f"<p style='font-size:16px;'><strong>Inkluderade yrkesgrupper</strong><br />&emsp;&emsp;&emsp;<small>{occupation_string}</small></p>"
+            st.markdown(string_to_print, unsafe_allow_html = True)
+
+            string_all = create_string_all_selected()
+            st.markdown(string_all, unsafe_allow_html = True)
+
+        text_dataunderlag_närliggande_orter = "<strong>Dataunderlag</strong><br />Annonsplaneraren baseras på avstånd mellan orter från öppen geodata, annonser i Platsbanken och Historiska berikade annonser knutna till aktuell yrkesgrupp och kommun."
         
         st.write("---")
         st.markdown(f"<p style='font-size:12px;'>{text_dataunderlag_närliggande_orter}</p>", unsafe_allow_html=True)
