@@ -150,7 +150,7 @@ def create_locations_with_ads(id_location):
     all_locations_with_links_adds = sorted(all_locations_with_links_adds, key = operator.itemgetter("distance"), reverse = False)
     return all_locations_with_links_adds
 
-@st.cache_data
+#@st.cache_data
 def fetch_data():
     st.session_state.occupationdata = import_data("all_valid_occupations_with_info_v25.json")
     for key, value in st.session_state.occupationdata.items():
