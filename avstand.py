@@ -162,9 +162,9 @@ def fetch_data():
     st.session_state.ad_data_historical = import_data("ssyk_region_kommun_annonser_2024.json")
     st.session_state.ad_data_platsbanken = import_ads()
     #st.session_state.ad_data_platsbanken= import_data("platsbanken.json")
-    st.session_state.labour_flow = import_data("labour_flow_data.json")
-    st.session_state.municipality_id_region_id = import_data("kommun_id_region_id.json")
-    st.session_state.forecast = import_data("barometer_regional.json")
+    #st.session_state.labour_flow = import_data("labour_flow_data.json")
+    #st.session_state.municipality_id_region_id = import_data("kommun_id_region_id.json")
+    #st.session_state.forecast = import_data("barometer_regional.json")
     st.session_state.occupation_group_id_name = import_data("occupation_group_id_name.json")
 
 def show_initial_information():
