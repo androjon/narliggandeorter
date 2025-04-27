@@ -447,9 +447,6 @@ def post_selected_occupation(id_occupation):
             string_all = create_string_all_selected()
             st.markdown(string_all, unsafe_allow_html = True)
 
-            restart_string = f"<p style='font-size:16px;'><strong>För att rensa din val</strong><br />COMMAND + R</p>"
-            st.markdown(restart_string, unsafe_allow_html = True)
-
         text_dataunderlag_närliggande_orter = "<strong>Dataunderlag</strong><br />Annonsplaneraren baseras på avstånd mellan orter från öppen geodata, annonser i Platsbanken och Historiska berikade annonser knutna till aktuell yrkesgrupp och kommun."
 
         st.write("---")
