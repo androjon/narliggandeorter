@@ -4,12 +4,12 @@ import requests
 import itertools
 import re
 import operator
-#from import_ads_platsbanken import import_ads
+from import_ads_platsbanken import import_ads
 
-# @st.cache_data
-# def import_plastbanken():
-#     data = import_ads()
-#     return data
+@st.cache_data
+def import_plastbanken():
+    data = import_ads()
+    return data
 
 @st.cache_data
 def import_data(filename):
@@ -27,8 +27,8 @@ def fetch_data():
     st.session_state.geodata = import_data("ort_ort_relevans.json")
     st.session_state.municipality_id_namn = import_data("kommun_id_namn.json")
     st.session_state.ad_data_historical = import_data("ssyk_region_kommun_annonser_2024.json")
-    #st.session_state.ad_data_platsbanken = import_plastbanken()
-    st.session_state.ad_data_platsbanken = import_data("platsbanken.json")
+    st.session_state.ad_data_platsbanken = import_plastbanken()
+    #st.session_state.ad_data_platsbanken = import_data("platsbanken.json")
     st.session_state.occupation_group_id_name = import_data("occupation_group_id_name.json")
 
 def show_initial_information():
@@ -370,7 +370,14 @@ def post_selected_occupation(id_occupation):
         "Välj en ort",
         (valid_locations), placeholder = "", index = None)
     
-    st.session_state.location_selected = False
+    # Töm inkluderade kommuner om ort ändras
+    if "previous_selected_location" in st.session_state:
+        if st.session_state.previous_selected_location != selected_location:
+            st.session_state.included_municipalities = []
+    else:
+        st.session_state.included_municipalities = []
+
+    st.session_state.previous_selected_location = selected_location
 
     if selected_location:
         if 'included_groups' not in st.session_state:
@@ -455,9 +462,24 @@ def choose_occupation_name():
     selected_occupation_name = st.selectbox(
         "Välj en yrkesbenämning",
         (valid_occupations), placeholder = "", index = None)
+
     if selected_occupation_name:
+        # Töm val om yrke har ändrats
+        if "previous_selected_occupation" in st.session_state:
+            if st.session_state.previous_selected_occupation != selected_occupation_name:
+                st.session_state.included_municipalities = []
+                st.session_state.included_groups = []
+                st.session_state.included_group_names = []
+        else:
+            st.session_state.included_municipalities = []
+            st.session_state.included_groups = []
+            st.session_state.included_group_names = []
+
+        st.session_state.previous_selected_occupation = selected_occupation_name
+
         id_selected_occupation = st.session_state.valid_occupations.get(selected_occupation_name)
         post_selected_occupation(id_selected_occupation)
+
 
 def main ():
     initiate_session_state()
