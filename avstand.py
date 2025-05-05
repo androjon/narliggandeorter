@@ -4,12 +4,12 @@ import requests
 import itertools
 import re
 import operator
-from import_ads_platsbanken import import_ads
+#from import_ads_platsbanken import import_ads
 
-@st.cache_data
-def import_plastbanken():
-    data = import_ads()
-    return data
+# @st.cache_data
+# def import_plastbanken():
+#     data = import_ads()
+#     return data
 
 @st.cache_data
 def import_data(filename):
@@ -27,8 +27,8 @@ def fetch_data():
     st.session_state.geodata = import_data("ort_ort_relevans.json")
     st.session_state.municipality_id_namn = import_data("kommun_id_namn.json")
     st.session_state.ad_data_historical = import_data("ssyk_region_kommun_annonser_2024.json")
-    st.session_state.ad_data_platsbanken = import_plastbanken()
-    #st.session_state.ad_data_platsbanken = import_data("platsbanken.json")
+    #st.session_state.ad_data_platsbanken = import_plastbanken()
+    st.session_state.ad_data_platsbanken = import_data("platsbanken.json")
     st.session_state.occupation_group_id_name = import_data("occupation_group_id_name.json")
 
 def show_initial_information():
